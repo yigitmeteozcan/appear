@@ -66,8 +66,17 @@ function initStore() {
 
 const MAX_SESSIONS = 100_000;
 
+// Cap attributions to prevent unbounded memory growth under payment floods.
+// 500k records ≈ 200 MB at ~400 bytes per record — reasonable upper bound.
+const MAX_ATTRIBUTIONS = 500_000;
+
 function saveSession(sessionId, visitData) {
-  if (sessions.size >= MAX_SESSIONS && !sessions.has(sessionId)) return;
+  // When the cap is hit, silently drop new sessions (DoS mitigation).
+  // Existing sessions can still be updated. Warn operators so they know.
+  if (sessions.size >= MAX_SESSIONS && !sessions.has(sessionId)) {
+    console.warn('[appear] sessions cap reached — new session dropped');
+    return;
+  }
 
   const now = Date.now();
   const expiresAt = now + SESSION_TTL_MS;
@@ -98,6 +107,13 @@ function getSession(sessionId) {
 }
 
 function saveAttribution(paymentId, sessionId, visitData, paymentData) {
+  // Prevent unbounded growth — silently drop when cap is reached.
+  // Duplicate payment_ids are allowed to update (idempotent re-delivery).
+  if (attributions.size >= MAX_ATTRIBUTIONS && !attributions.has(paymentId)) {
+    console.warn('[appear] attributions cap reached — new attribution dropped');
+    return null;
+  }
+
   const now = Date.now();
   const record = {
     payment_id: paymentId,

@@ -61,6 +61,21 @@ app.use(
 // All other routes get JSON parsing with a tight limit
 app.use(express.json({ limit: '10kb' }));
 
+// ─── Prototype pollution guard ─────────────────────────────────────────────────
+// If a client sends {"__proto__": ...} or {"constructor": ...}, express's JSON
+// parser can pollute Object.prototype.  Reject such requests immediately after
+// body parsing so the risk never reaches route handlers.
+app.use((req, res, next) => {
+  if (req.body && typeof req.body === 'object') {
+    const dangerous = ['__proto__', 'constructor', 'prototype'];
+    const keys = Object.keys(req.body);
+    if (keys.some((k) => dangerous.includes(k))) {
+      return res.status(400).json({ error: 'Invalid request body' });
+    }
+  }
+  next();
+});
+
 // ─── Trust proxy (for rate limiting behind Railway/Render) ────────────────────
 app.set('trust proxy', 1);
 

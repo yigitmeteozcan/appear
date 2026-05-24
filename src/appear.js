@@ -49,7 +49,7 @@
     var s = String(val)
       .replace(/<[^>]*>/g, '')        // strip HTML/script tags
       .replace(/javascript:/gi, '')   // strip javascript: URIs
-      .replace(/[^\x20-\x7E -￿]/g, '') // printable only
+      .replace(/[^\x20-\x7E  -￿]/g, '') // printable only
       .trim()
       .slice(0, MAX_STRING_LEN);
     return s;
@@ -63,7 +63,29 @@
     if (global.crypto && crypto.randomUUID) {
       return crypto.randomUUID();
     }
-    // fallback for older browsers
+    // Fallback for browsers that have crypto.getRandomValues but not randomUUID
+    // (e.g. pre-2021 Safari). Math.random() is NOT a CSPRNG — use getRandomValues.
+    if (global.crypto && crypto.getRandomValues) {
+      var bytes = new Uint8Array(16);
+      crypto.getRandomValues(bytes);
+      // Set version 4 bits (bits 12-15 of time_hi_and_version = 0100)
+      bytes[6] = (bytes[6] & 0x0f) | 0x40;
+      // Set variant bits (bits 6-7 of clock_seq_hi = 10)
+      bytes[8] = (bytes[8] & 0x3f) | 0x80;
+      function hex(b, offset, len) {
+        var s = '';
+        for (var i = offset; i < offset + len; i++) {
+          s += ('0' + bytes[i].toString(16)).slice(-2);
+        }
+        return s;
+      }
+      return [
+        hex(bytes, 0, 4), '-', hex(bytes, 4, 2), '-', hex(bytes, 6, 2), '-',
+        hex(bytes, 8, 2), '-', hex(bytes, 10, 6),
+      ].join('');
+    }
+    // Last-resort fallback for very old environments without any crypto API.
+    // Not cryptographically random, but prevents hard crashes.
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
       var r = (Math.random() * 16) | 0;
       return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);

@@ -29,13 +29,14 @@ function requireApiKey(req, res, next) {
   }
 
   try {
-    const a = Buffer.from(provided.padEnd(apiKey.length));
-    const b = Buffer.from(apiKey);
-    // Buffers must be same length for timingSafeEqual
-    if (a.length !== b.length) {
-      return res.status(401).json({ error: 'Invalid API key' });
-    }
-    const valid = crypto.timingSafeEqual(a, b);
+    // HMAC-SHA256 both values with a fixed context key before comparing.
+    // This normalises buffer lengths to 32 bytes regardless of input length,
+    // eliminating the timing-observable early-exit that occurs when the caller
+    // sends a key shorter or longer than the stored key.  The `padEnd` trick
+    // used previously still leaked the stored key's length via the a.length
+    // !== b.length short-circuit path.
+    const hmac = (val) => crypto.createHmac('sha256', 'appear-auth').update(val).digest();
+    const valid = crypto.timingSafeEqual(hmac(provided), hmac(apiKey));
     if (!valid) {
       return res.status(401).json({ error: 'Invalid API key' });
     }

@@ -31,6 +31,22 @@ describe('AI engine detection — referrer', () => {
   }
 });
 
+describe('AI engine detection — referrer with path/query', () => {
+  test('perplexity with /search path and query string', () => {
+    const result = detectEngine('https://perplexity.ai/search?q=foo', null);
+    assert.ok(result);
+    assert.equal(result.engine, 'perplexity');
+    assert.equal(result.source, 'referrer');
+  });
+
+  test('chatgpt with long path', () => {
+    const result = detectEngine('https://chatgpt.com/c/some-conversation-id', null);
+    assert.ok(result);
+    assert.equal(result.engine, 'chatgpt');
+    assert.equal(result.source, 'referrer');
+  });
+});
+
 describe('AI engine detection — utm_source', () => {
   const cases = [
     [null, 'chatgpt', 'chatgpt', 'utm'],
@@ -55,6 +71,37 @@ describe('AI engine detection — utm_source', () => {
   }
 });
 
+describe('Mixed-case utm_source — case-insensitive match', () => {
+  // detectEngine calls utmSource.toLowerCase() so mixed-case must match
+  test('utm_source=CHATGPT (all caps) detects chatgpt', () => {
+    const result = detectEngine(null, 'CHATGPT');
+    assert.ok(result);
+    assert.equal(result.engine, 'chatgpt');
+    assert.equal(result.source, 'utm');
+  });
+
+  test('utm_source=ChatGPT (title case) detects chatgpt', () => {
+    const result = detectEngine(null, 'ChatGPT');
+    assert.ok(result);
+    assert.equal(result.engine, 'chatgpt');
+    assert.equal(result.source, 'utm');
+  });
+
+  test('utm_source=Perplexity (title case) detects perplexity', () => {
+    const result = detectEngine(null, 'Perplexity');
+    assert.ok(result);
+    assert.equal(result.engine, 'perplexity');
+    assert.equal(result.source, 'utm');
+  });
+
+  test('utm_source=GEMINI (all caps) detects gemini', () => {
+    const result = detectEngine(null, 'GEMINI');
+    assert.ok(result);
+    assert.equal(result.engine, 'gemini');
+    assert.equal(result.source, 'utm');
+  });
+});
+
 describe('Non-AI referrers — should return null', () => {
   const nonAiReferrers = [
     'https://google.com/search?q=example',
@@ -73,6 +120,58 @@ describe('Non-AI referrers — should return null', () => {
       assert.equal(result, null);
     });
   }
+});
+
+describe('Malformed/injection utm_source — should return null', () => {
+  test('utm_source with HTML injection <script> returns null', () => {
+    const result = detectEngine(null, '<script>alert(1)</script>');
+    assert.equal(result, null);
+  });
+
+  test('utm_source with javascript: URI returns null', () => {
+    const result = detectEngine(null, 'javascript:alert(1)');
+    assert.equal(result, null);
+  });
+
+  test('utm_source with empty string returns null', () => {
+    const result = detectEngine(null, '');
+    assert.equal(result, null);
+  });
+
+  test('utm_source with spaces only returns null', () => {
+    const result = detectEngine(null, '   ');
+    assert.equal(result, null);
+  });
+});
+
+describe('Malformed referrer — should not throw', () => {
+  test('non-URL string referrer returns null without throwing', () => {
+    assert.doesNotThrow(() => {
+      const result = detectEngine('not-a-url', null);
+      assert.equal(result, null);
+    });
+  });
+
+  test('triple-colon referrer returns null without throwing', () => {
+    assert.doesNotThrow(() => {
+      const result = detectEngine(':::', null);
+      assert.equal(result, null);
+    });
+  });
+
+  test('empty referrer returns null without throwing', () => {
+    assert.doesNotThrow(() => {
+      const result = detectEngine('', null);
+      assert.equal(result, null);
+    });
+  });
+
+  test('null referrer returns null without throwing', () => {
+    assert.doesNotThrow(() => {
+      const result = detectEngine(null, null);
+      assert.equal(result, null);
+    });
+  });
 });
 
 describe('utm_source takes precedence over referrer', () => {
