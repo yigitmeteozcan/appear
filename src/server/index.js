@@ -95,10 +95,17 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Not found' });
 });
 
-// Generic error handler — never expose stack traces
+// Generic error handler — never expose stack traces.
+// Express body-parser sets err.status (e.g. 413 for entity-too-large, 400 for
+// JSON syntax errors) so we forward that status instead of blindly returning 500.
 app.use((err, req, res, _next) => {
-  console.error('[appear] Unhandled error:', err.message);
-  res.status(500).json({ error: 'Internal server error' });
+  const status = (typeof err.status === 'number' && err.status >= 400 && err.status < 600)
+    ? err.status
+    : 500;
+  if (status >= 500) {
+    console.error('[appear] Unhandled error:', err.message);
+  }
+  res.status(status).json({ error: status === 413 ? 'Payload too large' : 'Internal server error' });
 });
 
 // ─── Start (only when run directly, not when require()d by tests) ────────────
