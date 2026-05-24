@@ -4,6 +4,7 @@ const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const http = require('node:http');
+const path = require('node:path');
 
 // ─── LemonSqueezy signature tests (pure crypto, no server needed) ─────────────
 
@@ -239,7 +240,7 @@ describe('In-memory store', () => {
   });
 });
 
-// ─── HTTP integration tests ───────────────────────────────────────────────────
+// ─── HTTP integration tests ─────────────────────────────────────────────────────
 
 describe('HTTP endpoints', () => {
   let server;
@@ -262,7 +263,7 @@ describe('HTTP endpoints', () => {
     await new Promise((resolve) => server.close(resolve));
   });
 
-  // ── /health ────────────────────────────────────────────────────────────────
+  // ── /health ──────────────────────────────────────────────────────────────────
 
   test('GET /health returns 200', async () => {
     const res = await fetch(`${baseUrl}/health`);
@@ -278,7 +279,7 @@ describe('HTTP endpoints', () => {
     assert.equal(body.env, undefined, 'health must not expose env vars');
   });
 
-  // ── /appear/stats ──────────────────────────────────────────────────────────
+  // ── /appear/stats ──────────────────────────────────────────────────────────────
 
   test('GET /appear/stats without auth returns 401', async () => {
     const res = await fetch(`${baseUrl}/appear/stats`);
@@ -324,7 +325,7 @@ describe('HTTP endpoints', () => {
     assert.equal(res.status, 200);
   });
 
-  // ── /appear/event ──────────────────────────────────────────────────────────
+  // ── /appear/event ──────────────────────────────────────────────────────────────
 
   test('POST /appear/event with valid payload returns 202', async () => {
     const payload = {
@@ -513,7 +514,7 @@ describe('HTTP endpoints', () => {
     assert.equal(lastStatus, 429, '61st request should be rate-limited to 429');
   });
 
-  // ── /stripe/webhook ────────────────────────────────────────────────────────
+  // ── /stripe/webhook ──────────────────────────────────────────────────────────────
 
   test('POST /stripe/webhook without signature returns 400', async () => {
     process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test';
@@ -815,7 +816,7 @@ describe('HTTP endpoints', () => {
     assert.equal(dedupEntries.length, 1, 'duplicate webhook delivery must not double-count');
   });
 
-  // ── /lemonsqueezy/webhook ──────────────────────────────────────────────────
+  // ── /lemonsqueezy/webhook ────────────────────────────────────────────────────────────
 
   test('POST /lemonsqueezy/webhook without signature returns 400', async () => {
     process.env.LEMONSQUEEZY_WEBHOOK_SECRET = 'test-ls-secret';
@@ -935,7 +936,7 @@ describe('HTTP endpoints', () => {
     assert.equal(body.received, true);
   });
 
-  // ── 404 ────────────────────────────────────────────────────────────────────
+  // ── 404 ──────────────────────────────────────────────────────────────────────
 
   test('unknown route returns 404', async () => {
     const res = await fetch(`${baseUrl}/not-a-real-route`);
@@ -943,7 +944,7 @@ describe('HTTP endpoints', () => {
   });
 });
 
-// ─── Startup / config tests ───────────────────────────────────────────────────
+// ─── Startup / config tests ─────────────────────────────────────────────────────
 
 describe('Startup and config', () => {
   test('Server starts without STRIPE_SECRET_KEY (lazy load — no crash)', () => {
@@ -966,19 +967,17 @@ describe('Startup and config', () => {
     });
   });
 
-  test('Server crashes (process.exit) if API_KEY is missing', async () => {
-    // Spawn a child process that does NOT set API_KEY — it should exit with code 1
-    const { execFile } = require('node:child_process');
-    const result = await new Promise((resolve) => {
-      execFile(
-        process.execPath,
-        ['-e', "require('./src/server/index.js')"],
-        { cwd: '/home/user/appear', env: { ...process.env, API_KEY: '' } },
-        (err, stdout, stderr) => {
-          resolve({ code: err ? err.code : 0, stderr });
-        }
-      );
-    });
-    assert.equal(result.code, 1, 'process should exit with code 1 when API_KEY is missing');
+  test('Server crashes (process.exit) if API_KEY is missing', () => {
+    // Use spawnSync so result.status is the raw exit code — execFile's err.code
+    // conflates system errors (ENOENT) with process exit codes, making it unreliable.
+    const { spawnSync } = require('node:child_process');
+    const env = { ...process.env };
+    delete env.API_KEY;
+    const result = spawnSync(
+      process.execPath,
+      [path.join(__dirname, '../src/server/index.js')],
+      { env }
+    );
+    assert.equal(result.status, 1, 'process should exit with code 1 when API_KEY is missing');
   });
 });
