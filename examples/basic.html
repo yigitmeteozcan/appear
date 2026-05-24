@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>appear.js — basic example</title>
+</head>
+<body>
+  <h1>appear.js basic example</h1>
+  <p>Open the console and visit this page from an AI referrer (or add <code>?utm_source=chatgpt</code> to the URL).</p>
+  <pre id="output">Detecting...</pre>
+
+  <script src="../src/appear.js"></script>
+  <script>
+    Appear.init({
+      webhookUrl: 'https://your-appear-server.com/appear/event',
+      debug: true,
+      onDetect: function(event) {
+        document.getElementById('output').textContent = JSON.stringify(event, null, 2);
+      },
+    });
+
+    // Manually check what was detected
+    var events = Appear.getEvents();
+    if (events.length === 0) {
+      document.getElementById('output').textContent = 'No AI referrer detected on this visit.';
+    }
+  </script>
+</body>
+</html>

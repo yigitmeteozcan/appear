@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>appear.js — Stripe example</title>
+  <script src="https://js.stripe.com/v3/"></script>
+</head>
+<body>
+  <h1>appear.js + Stripe</h1>
+  <p>This example shows how to attach the appear session ID to a Stripe Checkout session so payments can be attributed.</p>
+
+  <button id="checkout-btn">Buy now ($29)</button>
+
+  <script src="../src/appear.js"></script>
+  <script>
+    // 1. Initialize appear
+    Appear.init({
+      webhookUrl: 'https://your-appear-server.com/appear/event',
+      debug: true,
+    });
+
+    // 2. When the user clicks "Buy", send the appear session_id in metadata
+    document.getElementById('checkout-btn').addEventListener('click', async () => {
+      // Get the current session ID from appear
+      var events = Appear.getEvents();
+      var sessionId = events.length > 0 ? events[0].session_id : null;
+
+      // Call YOUR backend to create a Stripe Checkout session.
+      // Pass appear_session_id in the request so your server can put it in metadata.
+      var response = await fetch('https://your-backend.com/create-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appear_session_id: sessionId }),
+      });
+
+      var { url } = await response.json();
+      window.location.href = url;
+    });
+  </script>
+
+  <!--
+    On your backend, create the Stripe session like this:
+
+    const session = await stripe.checkout.sessions.create({
+      line_items: [{ price: 'price_xxx', quantity: 1 }],
+      mode: 'payment',
+      metadata: {
+        appear_session_id: req.body.appear_session_id,  // <-- this is the key
+      },
+      success_url: 'https://yoursite.com/thank-you',
+      cancel_url: 'https://yoursite.com/pricing',
+    });
+
+    When the payment completes, Stripe sends a webhook to your appear server
+    at POST /stripe/webhook. appear matches the session_id to the stored AI
+    visit and records the attribution automatically.
+  -->
+</body>
+</html>

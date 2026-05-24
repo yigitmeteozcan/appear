@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>appear.js — LemonSqueezy example</title>
+</head>
+<body>
+  <h1>appear.js + LemonSqueezy</h1>
+  <p>This example shows how to attach the appear session ID to a LemonSqueezy checkout so orders can be attributed.</p>
+
+  <!--
+    LemonSqueezy's Lemon.js overlay checkout accepts custom data via data attributes.
+    Append &checkout[custom][appear_session_id]=SESSION_ID to your checkout URL.
+  -->
+
+  <a id="checkout-link" href="#" class="lemonsqueezy-button">Buy now ($29)</a>
+
+  <!-- LemonSqueezy Lemon.js -->
+  <script src="https://app.lemonsqueezy.com/js/lemon.js" defer></script>
+
+  <script src="../src/appear.js"></script>
+  <script>
+    Appear.init({
+      webhookUrl: 'https://your-appear-server.com/appear/event',
+      debug: true,
+    });
+
+    // Attach appear session ID to checkout URL once DOM is ready
+    document.addEventListener('DOMContentLoaded', function () {
+      var events = Appear.getEvents();
+      var sessionId = events.length > 0 ? events[0].session_id : null;
+
+      if (sessionId) {
+        var baseUrl = 'https://yourstore.lemonsqueezy.com/checkout/buy/VARIANT_ID';
+        var url = baseUrl + '?checkout[custom][appear_session_id]=' + encodeURIComponent(sessionId);
+        document.getElementById('checkout-link').href = url;
+      }
+    });
+  </script>
+
+  <!--
+    When a customer completes the order, LemonSqueezy sends a webhook to
+    POST /lemonsqueezy/webhook on your appear server.
+
+    The custom data is available at:
+      payload.meta.custom_data.appear_session_id
+
+    appear verifies the HMAC-SHA256 signature, looks up the session,
+    and records the revenue attribution automatically.
+  -->
+</body>
+</html>
