@@ -2,7 +2,7 @@
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Know when ChatGPT, Perplexity, Claude, or Gemini sends you a customer — and how much they're worth.
+Know when ChatGPT, Perplexity, Claude, or Gemini sends you a customer and how much they're worth.
 
 ## How it works
 
