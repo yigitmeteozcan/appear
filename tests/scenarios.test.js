@@ -37,7 +37,7 @@ function makeLSSignature(body, secret) {
 let server;
 let baseUrl;
 let store;
-const API_KEY = 'scenarios-test-api-key-abc123';
+const API_KEY = 'scenarios-test-api-key-abc123-xyz'; // ≥32 chars required
 
 before(async () => {
   process.env.API_KEY = API_KEY;
@@ -567,7 +567,7 @@ describe('SCENARIO 8: Rate limit fires on 61st request from same IP', () => {
         ['-e', script],
         {
           cwd: '/home/user/appear',
-          env: { ...process.env, API_KEY: 'test', ALLOWED_ORIGINS: 'https://example.com' },
+          env: { ...process.env, API_KEY: 'test-api-key-rate-limit-xxxxxxxxxx', ALLOWED_ORIGINS: 'https://example.com' },
           timeout: 30000,
         },
         (err, stdout, stderr) => {

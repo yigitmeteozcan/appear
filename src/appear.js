@@ -15,16 +15,18 @@
   const MAX_STRING_LEN = 500;
   const DEFAULT_MAX_STORED = 50;
 
-  // AI engine detection rules: ordered by specificity
+  // AI engine detection rules: patterns match against the extracted hostname only,
+  // so `evil.com/?ref=chatgpt.com` cannot spoof the referrer check.
+  // `(?:^|\.)` anchors to exact domain or subdomain; `$` anchors to end.
   const AI_ENGINES = [
-    { name: 'chatgpt',    pattern: /chatgpt\.com|chat\.openai\.com/i },
-    { name: 'perplexity', pattern: /perplexity\.ai/i },
-    { name: 'claude',     pattern: /claude\.ai/i },
-    { name: 'gemini',     pattern: /gemini\.google\.com|bard\.google\.com/i },
-    { name: 'copilot',    pattern: /copilot\.microsoft\.com|bing\.com\/chat/i },
-    { name: 'you',        pattern: /you\.com/i },
-    { name: 'phind',      pattern: /phind\.com/i },
-    { name: 'poe',        pattern: /poe\.com/i },
+    { name: 'chatgpt',    pattern: /(?:^|\.)chatgpt\.com$|(?:^|\.)chat\.openai\.com$/i },
+    { name: 'perplexity', pattern: /(?:^|\.)perplexity\.ai$/i },
+    { name: 'claude',     pattern: /(?:^|\.)claude\.ai$/i },
+    { name: 'gemini',     pattern: /(?:^|\.)gemini\.google\.com$|(?:^|\.)bard\.google\.com$/i },
+    { name: 'copilot',    pattern: /(?:^|\.)copilot\.microsoft\.com$|(?:^|\.)bing\.com$/i },
+    { name: 'you',        pattern: /(?:^|\.)you\.com$/i },
+    { name: 'phind',      pattern: /(?:^|\.)phind\.com$/i },
+    { name: 'poe',        pattern: /(?:^|\.)poe\.com$/i },
   ];
 
   // utm_source values that map to engines
@@ -49,7 +51,11 @@
     var s = String(val)
       .replace(/<[^>]*>/g, '')        // strip HTML/script tags
       .replace(/javascript:/gi, '')   // strip javascript: URIs
-      .replace(/[^\x20-\x7E  -￿]/g, '') // printable only
+      // Strip bidi controls + zero-width chars (U+200B-200F, U+202A-202E,
+      // U+2066-2069, U+FEFF). These survive the printable filter below and
+      // can spoof displayed text in logs or UIs (RTL override attack).
+      .replace(/[\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]/g, '')
+      .replace(/[^\x20-\x7E -￿]/g, '') // printable only
       .trim()
       .slice(0, MAX_STRING_LEN);
     return s;
@@ -96,7 +102,9 @@
     if (typeof url !== 'string') return false;
     try {
       var u = new URL(url);
-      return u.protocol === 'https:';
+      // Reject embedded credentials (https://user:pass@host) — no legitimate
+      // webhookUrl should carry credentials in the URL.
+      return u.protocol === 'https:' && u.username === '' && u.password === '';
     } catch (e) {
       return false;
     }
@@ -127,10 +135,13 @@
       }
     }
 
-    // 2. Check referrer URL
+    // 2. Check referrer URL — extract hostname first so path/query components
+    // (e.g. evil.com/?ref=chatgpt.com) cannot spoof the anchored patterns.
     if (referrer) {
+      var hostname = referrer;
+      try { hostname = new URL(referrer).hostname; } catch (e) {}
       for (var i = 0; i < AI_ENGINES.length; i++) {
-        if (AI_ENGINES[i].pattern.test(referrer)) {
+        if (AI_ENGINES[i].pattern.test(hostname)) {
           return { engine: AI_ENGINES[i].name, source: 'referrer' };
         }
       }

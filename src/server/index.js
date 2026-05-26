@@ -8,6 +8,10 @@ if (missing.length > 0) {
   console.error('[appear] Copy .env.example to .env and fill in the values');
   process.exit(1);
 }
+if (process.env.API_KEY.length < 32) {
+  console.error('[appear] API_KEY must be at least 32 characters');
+  process.exit(1);
+}
 
 const express = require('express');
 const helmet = require('helmet');
@@ -76,8 +80,13 @@ app.use((req, res, next) => {
   next();
 });
 
-// ─── Trust proxy (for rate limiting behind Railway/Render) ────────────────────
-app.set('trust proxy', 1);
+// ─── Trust proxy (for rate limiting behind Railway/Render/Fly.io) ───────────
+// Only enabled when TRUST_PROXY is set — leaving it on in environments without
+// a real proxy lets attackers spoof X-Forwarded-For to bypass rate limiting.
+if (process.env.TRUST_PROXY) {
+  const tp = parseInt(process.env.TRUST_PROXY, 10);
+  app.set('trust proxy', isNaN(tp) ? process.env.TRUST_PROXY : tp);
+}
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 

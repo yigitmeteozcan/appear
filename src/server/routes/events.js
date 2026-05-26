@@ -22,7 +22,8 @@ router.post(
   handleValidationErrors,
   (req, res) => {
     try {
-      const event = req.body;
+      // Shallow-copy so we never mutate the parsed req.body object.
+      const event = { ...req.body };
 
       // Normalize timestamp to server time if it's wildly off (>5 min skew)
       const clientTs = new Date(event.timestamp).getTime();
