@@ -198,3 +198,26 @@ describe('Unknown utm_source falls through to referrer', () => {
     assert.equal(result.source, 'referrer');
   });
 });
+
+describe('Referrer spoofing — hostname boundary enforcement', () => {
+  test('evil.com with chatgpt.com in path returns null', () => {
+    const result = detectEngine('https://evil.com/page?ref=chatgpt.com', null);
+    assert.equal(result, null, 'chatgpt.com in query string must not spoof detection');
+  });
+
+  test('fakechatgpt.com returns null', () => {
+    const result = detectEngine('https://fakechatgpt.com/', null);
+    assert.equal(result, null, 'subdomain prefix must not match chatgpt.com');
+  });
+
+  test('notperplexity.ai returns null', () => {
+    const result = detectEngine('https://notperplexity.ai/', null);
+    assert.equal(result, null, 'different TLD prefix must not match perplexity.ai');
+  });
+
+  test('subdomain of chatgpt.com is detected correctly', () => {
+    const result = detectEngine('https://sub.chatgpt.com/', null);
+    assert.ok(result, 'legitimate subdomain of chatgpt.com should be detected');
+    assert.equal(result.engine, 'chatgpt');
+  });
+});

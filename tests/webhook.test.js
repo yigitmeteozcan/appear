@@ -245,7 +245,7 @@ describe('In-memory store', () => {
 describe('HTTP endpoints', () => {
   let server;
   let baseUrl;
-  const API_KEY = 'test-api-key-integration';
+  const API_KEY = 'test-api-key-integration-xxxxxxxx'; // ≥32 chars required
 
   before(async () => {
     process.env.API_KEY = API_KEY;
@@ -979,5 +979,15 @@ describe('Startup and config', () => {
       { env }
     );
     assert.equal(result.status, 1, 'process should exit with code 1 when API_KEY is missing');
+  });
+
+  test('Server crashes (process.exit) if API_KEY is shorter than 32 characters', () => {
+    const { spawnSync } = require('node:child_process');
+    const result = spawnSync(
+      process.execPath,
+      [path.join(__dirname, '../src/server/index.js')],
+      { env: { ...process.env, API_KEY: 'tooshort' } }
+    );
+    assert.equal(result.status, 1, 'process should exit with code 1 when API_KEY is too short');
   });
 });

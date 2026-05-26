@@ -65,14 +65,22 @@ const validateEvent = [
     .optional()
     .isString()
     .trim()
-    .isLength({ max: MAX_LEN }),
+    .isLength({ max: MAX_LEN })
+    .custom((val) => {
+      if (val && /javascript:/i.test(val)) throw new Error('referrer must not contain javascript: URI');
+      return true;
+    }),
 
   mustBeString('page_url'),
   body('page_url')
     .isString().withMessage('page_url must be a string')
     .bail()
     .trim()
-    .isLength({ min: 1, max: MAX_LEN }),
+    .isLength({ min: 1, max: MAX_LEN })
+    .custom((val) => {
+      if (/javascript:/i.test(val)) throw new Error('page_url must not contain javascript: URI');
+      return true;
+    }),
 
   body('timestamp')
     .isISO8601().withMessage('timestamp must be a valid ISO 8601 date'),

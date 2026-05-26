@@ -11,7 +11,8 @@ const router = express.Router();
  * GET /appear/stats
  * Returns attribution stats. Requires API key.
  */
-router.get('/stats', requireApiKey, statsLimiter, (req, res) => {
+// Rate limiter is applied before auth so brute-force auth attempts are also throttled.
+router.get('/stats', statsLimiter, requireApiKey, (req, res) => {
   try {
     const stats = getStats();
     return res.json(stats);
